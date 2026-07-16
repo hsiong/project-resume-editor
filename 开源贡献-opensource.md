@@ -9,22 +9,27 @@
 
 # 开源贡献
 
-> <http://example.com/> 开源项目记录。
+> <http://example.com/> 为示例重定向链接。
 
 ## 核心社区贡献
 
 | 项目 | 内容 | 链接 |
 | --- | --- | --- |
-| 某后台管理模板 | 修复登录页面的兼容性问题 | <https://github.com/example/project-a/pull/1> |
-| 某 Java 工具库 | 补充字符串处理工具类的单元测试 | <https://github.com/example/project-b/pull/2> |
-| 某前端组件库 | 优化表格组件的性能表现 | <https://github.com/example/project-c/pull/3> |
+| 示例项目 A | 核心功能支持 | <https://github.com/example/a/pull/1> |
+| 示例项目 B | 性能优化 | <https://github.com/example/b/pull/2> |
+| 示例项目 C | Bug修复 | <https://github.com/example/c/pull/3> |
 
-## 个人项目
+## 开发框架
 
-- 简易博客系统: <http://example.com/blog>
-- 个人记账小程序服务端: <http://example.com/account>
+- 示例后端框架: <http://example.com/fw1>
+- 示例前端框架: <http://example.com/fw2>
+
+## 脚手架
+
+- 示例脚手架 A: <http://example.com/scaffold_a>
+- 示例脚手架 B: <http://example.com/scaffold_b>
 
 ## 学习笔记
 
-- 数据库优化实践笔记: <http://example.com/note1>
-- 微服务架构学习总结: <http://example.com/note2>
+- 技术栈笔记: <http://example.com/note1>
+- 算法与数据结构: <http://example.com/note2>
