@@ -1,0 +1,226 @@
+/******************************************  page1  ******************************************************/
+
+body {
+    margin: 0;
+}
+
+.page1 {
+    /* Background pattern from Toptal Subtle Patterns */
+    background-image: url("https://user-images.githubusercontent.com/37357447/189831262-3dea9156-159c-4668-a2e5-496a3e0a115f.png");
+    height: 297mm; /* A4 */
+    width: 210mm;
+    /* https://blog.csdn.net/enterlind/article/details/81316756 */
+    position: relative;
+}
+
+.page1>* {
+    position: absolute;
+    transform: translate(-50%, -50%);
+}
+
+.page1-title {
+    top: 23%;
+    left: 50%;
+    width: 100%;
+    height: 70%;
+}
+
+.page1-title>* {
+    position: absolute;
+    transform: translate(-50%, -50%);
+}
+
+.page1-title-font {
+    left: 50%;
+    top: 42%;
+    font-family: Hiragino Sans GB;
+    font-weight: 600;
+    font-size: 60px;
+    color: #2dbecc;
+}
+
+.page1-div1 {
+    top: 35%;
+    left: 50%;
+    width: 100%;
+    height: 70%;
+}
+
+.page1-div1>* {
+    position: absolute;
+    transform: translate(-50%, -50%);
+}
+
+.page1-brief {
+    height: 5%;
+    top: 20%;
+    left: 50%;
+}
+
+.page1-intro1 {
+    left: 50%;
+    top: 42%;
+    font-size: 30px;
+    color: #2dbecc;
+}
+
+.page1-separator {
+    top: 50%;
+    left: 50%;
+}
+
+.page1-intro2 {
+    left: 50%;
+    top: 50%;
+    font-size: 30px;
+    color: #2dbecc;
+}
+
+.page1-info-list {
+    font-weight: bolder;
+    color: #2dbecc;
+    top: 59%;
+    left: 50%;
+    list-style-type: none;
+    font-size: larger;
+}
+
+.page1-info-list>li {
+    margin-top: 3mm;
+}
+
+/******************************************  page2  ******************************************************/
+
+/* 
+块级元素
+    内联元素   内联元素  内联元素
+        浮动定位1
+        浮动定位2
+块级元素
+
+*/
+.page2 {
+    /* Background pattern from Toptal Subtle Patterns */
+    height: 297mm !important; /* A4 */
+    width: 210mm;
+    /* https://blog.csdn.net/enterlind/article/details/81316756 */
+    position: relative;
+}
+
+.page2-div1>* {
+    display: inline-block;
+}
+
+.page2-div1-job {
+    position: relative;
+    width: 80mm;
+    height: 40mm;
+    background-image: url("https://user-images.githubusercontent.com/37357447/189868494-b892610d-fc77-4390-9101-a8578fe90ede.png");
+}
+
+.page2-div1-job>* {
+    position: absolute;
+    transform: translate(-50%, -50%);
+}
+
+.page2-div1-job-word {
+    width: 50mm;
+    color: #fff;
+    left: 65%;
+    top: 65%;
+}
+
+.page2-div1-info-list {
+    color: #2dbecc;
+    width: 80mm;
+    font-weight: bolder;
+}
+
+.page2-div1-info-list>ul>li {
+    margin-top: 3mm;
+}
+
+.page2-div1-image{
+    width: 120px;          /* 可根据需要调整大小 */
+    height: 120px;
+    border-radius: 50%;    /* 关键代码：让图片变成圆形 */
+    object-fit: cover;     /* 确保图片内容不会变形或留白 */
+    border: 4px solid rgba(147, 205, 221, 0.8);  /* 0.5 表示 50% 透明度 */
+}
+
+.page2-table {
+    width: 95%;
+    margin-left: 6mm;
+    margin-top: 0mm;
+    border-spacing: 0px 10px;
+    position: absolute;
+}
+
+.page2-table>* {
+    display: inline-block;
+}
+
+.page2-td-title {
+    color: #2dbecc;
+    width: 40mm;
+    font-weight: bolder;
+    font-size: large;
+}
+
+.page2-td-blank {
+    width: 5mm;
+}
+
+.page2-td-title-blank {}
+
+.page2-td-time {}
+
+.page2-td-brief {}
+
+.page2-td-job {}
+
+.page2-td-detail {
+    width: 120mm;
+}
+
+.page2-td-next-line {
+    background-image: url("https://user-images.githubusercontent.com/37357447/190294379-b84b02c5-12c3-41f6-a159-1b45c1f41a6d.png");
+}
+
+.page-image-string {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    /* 起始点需要微调 */
+    left: 21.5%;
+    width: 1mm;
+}
+
+a:link {
+    color: #ECAD9E;
+    text-decoration: underline;
+}
+
+a:visited {
+    color: #ECAD9E;
+    text-decoration: none;
+}
+
+/******************************************  page2  ******************************************************/
+
+.page-detail {
+    width: 210mm;
+    position: relative;
+}
+
+#page-detail-iframe {
+    width: calc(210mm - (12mm * 2));
+    height: calc(296mm * 5); /* iframe 浏览器有边距, 打印无边距 */
+    margin-left: 10mm; /* 控制打印时的页边距 */
+}
+
+#page-last-iframe {
+    width: calc(210mm - (12mm * 2));
+    /* (273 * 页数 - 10) */
+    height: 296mm; /* 减去缓冲, 因为缩放, 会导致 */
+    margin-left: 10mm; /* 控制打印时的页边距 */
+}

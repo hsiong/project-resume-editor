@@ -1,5 +1,5 @@
 import MarkdownIt from 'markdown-it';
-import '../../resume/jf.css';
+import './jf.css';
 import './styles.css';
 
 const tabs = [
