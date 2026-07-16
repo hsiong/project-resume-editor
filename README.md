@@ -1,40 +1,40 @@
-# 简历实时编辑器
+# 简历实时编辑器 (Resume Editor)
 
-这是一个本地 Markdown 简历编辑器。首页和概览部分沿用上级目录 `resume.html` / `resume/jf.css` 的版式；项目经验和开源贡献使用新的 Markdown A4 样式。
+一款支持本地实时预览、直接写盘和高保真 A4 排版导出的 Markdown 简历编辑器，专为开发者打造。
 
-## 使用
+![Resume Editor Interface](docs/images/readme/screenshot1.png)
+
+## 快速开始
+
+启动本地服务（首次启动会自动安装依赖）：
 
 ```bash
-cd /Users/vjf/Documents/resume/resume-editor
-npm install
+cd code
 ./start.sh
 ```
 
-打开 `http://localhost:5173/`。
+在浏览器中打开 [http://localhost:5173/](http://localhost:5173/) 即可开始编辑。
 
-停止服务：
+编辑完成后，停止服务：
 
 ```bash
+# 需在 code 目录下执行
 ./stop.sh
 ```
 
-`start.sh` 会先清理 5173 端口，再执行构建，并用项目内置 Node 静态服务后台托管 `dist/`。需要换端口时：
+> **自定义端口**：如果端口被占用，可以通过环境变量指定，例如 `PORT=5174 ./start.sh`，并在停止时执行 `./stop.sh 5174`。
 
-```bash
-PORT=5174 ./start.sh
-./stop.sh 5174
-```
+## 核心特性
 
-## 说明
+- **所见即所得**：左侧按「首页 / 项目经验 / 开源贡献」分板块编辑，右侧实时渲染 A4 排版效果。
+- **安全写盘**：数据不留存在前端，点击「保存」会通过本地 Node.js 服务将三份 Markdown 实时写回磁盘。
+- **一键 PDF 导出**：右侧共用同一份 A4 预览 DOM，点击「导出 PDF」直接唤起浏览器打印窗口，目标打印机选择「另存为 PDF (Save as PDF)」即可。
+- **灵活的分页控制**：支持标准 Markdown 语法及部分 HTML（如表格、链接、列表）。若需要手动分页，只需在 Markdown 中插入 `<div class="page-break"></div>`。
 
-- 左侧按「首页 / 项目经验 / 开源贡献」编辑内容。
-- 初始内容不再写死在前端代码里，而是由本地服务读取这三个文件：
-  - `首页-start.md`
-  - `项目经验-detail.md`
-  - `开源贡献-opensource.md`
-- 点击「保存」会把三份 Markdown 都写回磁盘。
-- `首页-start.md` 只作为数据源，渲染时会填入原 `page1/page2/page2-table` 样式，不使用新的 Markdown 样式。
-- `项目经验-detail.md` 和 `开源贡献-opensource.md` 支持标准 Markdown、表格、链接、列表、引用和少量 HTML。
-- 这两个详情文件需要手动分页时，在 Markdown 中写 `<div class="page-break"></div>`。
-- 导出 PDF 使用右侧同一份 A4 预览 DOM。
-- 点击「导出 PDF」会打开浏览器打印窗口，目标打印机选择「Save as PDF」即可。
+## 文件结构
+
+初始内容不再硬编码在前端，而是读取 `code/data/` 目录下的本地文件作为数据源：
+
+- `首页-start.md`：只作为数据源，渲染时自动填入预设的经典排版样式。
+- `项目经验-detail.md`：详细的项目经历，采用原生的 Markdown A4 排版解析。
+- `开源贡献-opensource.md`：参与的开源项目及贡献。

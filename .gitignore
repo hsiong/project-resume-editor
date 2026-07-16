@@ -1,15 +1,15 @@
 # dependencies
-/node_modules
+node_modules
 
 # testing
 /coverage
 
 # production
-/build
-/dist
+build
+dist
 
 # IDEs and editors
-/.idea
+.idea
 .project
 .classpath
 .c9/
@@ -36,3 +36,4 @@ pnpm-debug.log*
 .env.development.local
 .env.test.local
 .env.production.local
+*_bac.md

@@ -3,9 +3,9 @@ import './jf.css';
 import './styles.css';
 
 const tabs = [
-  { id: 'start', label: '首页', title: '首页-start.md', filename: '首页-start.md' },
-  { id: 'detail', label: '项目经验', title: '项目经验-detail.md', filename: '项目经验-detail.md' },
-  { id: 'opensource', label: '开源贡献', title: '开源贡献-opensource.md', filename: '开源贡献-opensource.md' },
+  { id: 'start', label: '首页', title: 'file/首页-start.md', filename: 'file/首页-start.md' },
+  { id: 'detail', label: '项目经验', title: 'file/项目经验-detail.md', filename: 'file/项目经验-detail.md' },
+  { id: 'opensource', label: '开源贡献', title: 'file/开源贡献-opensource.md', filename: 'file/开源贡献-opensource.md' },
 ];
 
 const md = new MarkdownIt({

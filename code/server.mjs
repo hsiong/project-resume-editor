@@ -5,10 +5,11 @@ import { extname, join, normalize, resolve } from 'node:path';
 const port = Number(process.argv[2] || process.env.PORT || 5173);
 const root = resolve(process.argv[3] || join(process.cwd(), 'dist'));
 const workspace = resolve(process.cwd());
+const suffix = process.env.DATA_SUFFIX || '';
 const docs = {
-  start: '首页-start.md',
-  detail: '项目经验-detail.md',
-  opensource: '开源贡献-opensource.md',
+  start: `data/首页-start${suffix}.md`,
+  detail: `data/项目经验-detail${suffix}.md`,
+  opensource: `data/开源贡献-opensource${suffix}.md`,
 };
 
 const contentTypes = {

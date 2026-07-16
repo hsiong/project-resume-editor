@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PORT="${1:-${PORT:-5173}}"
-PID_FILE="$ROOT_DIR/.resume-editor.pid"
+PID_FILE="$SCRIPT_DIR/.resume-editor.pid"
 
 stop_pid() {
   local pid="$1"
