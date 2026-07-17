@@ -7,6 +7,7 @@ PORT="${PORT:-5173}"
 # 默认空, 修改此配置可切换数据源后缀，例如改为 "_bac" 将加载以 _bac.md 结尾的文件
 DATA_SUFFIX="${DATA_SUFFIX:-}" 
 export DATA_SUFFIX
+echo "DATA_SUFFIX: $DATA_SUFFIX"
 
 PID_FILE="$SCRIPT_DIR/.resume-editor.pid"
 LOG_FILE="$SCRIPT_DIR/.resume-editor.log"
