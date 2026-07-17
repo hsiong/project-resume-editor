@@ -9,9 +9,6 @@ DATA_SUFFIX="${DATA_SUFFIX:-}"
 export DATA_SUFFIX
 echo "DATA_SUFFIX: $DATA_SUFFIX"
 
-PID_FILE="$SCRIPT_DIR/.resume-editor.pid"
-LOG_FILE="$SCRIPT_DIR/.resume-editor.log"
-
 cd "$SCRIPT_DIR"
 
 echo "Stopping existing resume editor on port $PORT..."
@@ -26,16 +23,15 @@ echo "Building resume editor..."
 npm run build
 
 echo "Starting resume editor on http://localhost:$PORT/ ..."
-nohup node "$SCRIPT_DIR/server.mjs" "$PORT" "$SCRIPT_DIR/dist" > "$LOG_FILE" 2>&1 &
-echo "$!" > "$PID_FILE"
+nohup node "$SCRIPT_DIR/server.mjs" "$PORT" "$SCRIPT_DIR/dist" > /dev/null 2>&1 &
 
 sleep 2
 
 if lsof -ti tcp:"$PORT" >/dev/null 2>&1; then
-  echo "Started. PID: $(cat "$PID_FILE")"
-  echo "Log: $LOG_FILE"
+  PORT_PID="$(lsof -ti tcp:"$PORT" | head -n 1)"
+  echo "Started. PID: $PORT_PID"
   echo "URL: http://localhost:$PORT/"
 else
-  echo "Failed to start. Check log: $LOG_FILE" >&2
+  echo "Failed to start." >&2
   exit 1
 fi
