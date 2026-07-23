@@ -2,6 +2,9 @@ import MarkdownIt from 'markdown-it';
 import './jf.css';
 import './styles.css';
 
+// 无肖像权/版权争议的占位头像：纯几何 SVG，内嵌为 data URI，不依赖任何外链
+const DEFAULT_AVATAR = 'data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22150%22%20height%3D%22150%22%20viewBox%3D%220%200%20150%20150%22%3E%3Crect%20width%3D%22150%22%20height%3D%22150%22%20fill%3D%22%23e8edf3%22%2F%3E%3Ccircle%20cx%3D%2275%22%20cy%3D%2258%22%20r%3D%2228%22%20fill%3D%22%23b7c3d2%22%2F%3E%3Cpath%20d%3D%22M27%20138c0-26%2021-44%2048-44s48%2018%2048%2044z%22%20fill%3D%22%23b7c3d2%22%2F%3E%3C%2Fsvg%3E';
+
 const tabs = [
   { id: 'start', label: '首页', title: 'file/首页-start.md', filename: 'file/首页-start.md' },
   { id: 'detail', label: '项目经验', title: 'file/项目经验-detail.md', filename: 'file/项目经验-detail.md' },
@@ -20,29 +23,30 @@ md.renderer.rules.table_open = () => '<table class="md-table">';
 const state = {
   activeTab: 'start',
   docs: Object.fromEntries(tabs.map((tab) => [tab.id, ''])),
-  dirty: false,
   loading: true,
 };
 
 document.querySelector('#app').innerHTML = `
   <main class="shell">
     <section class="editor-panel">
-      <header class="toolbar">
-        <div>
-          <h1>简历实时编辑器</h1>
-          <p id="editor-title"></p>
-        </div>
-        <div class="actions">
-          <button id="reload-button" type="button" class="ghost">重新读取</button>
-          <button id="save-button" type="button">保存</button>
-          <button id="print-button" type="button">导出 PDF</button>
-        </div>
-      </header>
-      <nav class="tabs">
-        ${tabs.map((tab) => `<button class="tab" data-tab="${tab.id}" type="button">${tab.label}</button>`).join('')}
-      </nav>
+      <div id="editor-topbar" class="editor-topbar">
+        <header class="toolbar">
+          <div>
+            <h1>简历实时编辑器</h1>
+            <p id="editor-title"></p>
+          </div>
+          <div class="actions">
+            <span id="toolbar-notice" class="toolbar-notice" role="status"></span>
+            <button id="reload-button" type="button" class="ghost">重新读取</button>
+            <button id="save-button" type="button">保存</button>
+            <button id="print-button" type="button">导出 PDF</button>
+          </div>
+        </header>
+        <nav class="tabs">
+          ${tabs.map((tab) => `<button class="tab" data-tab="${tab.id}" type="button">${tab.label}</button>`).join('')}
+        </nav>
+      </div>
       <textarea id="markdown-input" spellcheck="false"></textarea>
-      <div id="status-line" class="status-line"></div>
     </section>
     <section class="preview-panel">
       <div class="preview-top">
@@ -55,15 +59,55 @@ document.querySelector('#app').innerHTML = `
   <div id="measure-root" aria-hidden="true"></div>
 `;
 
+const editorPanel = document.querySelector('.editor-panel');
+const editorTopbar = document.querySelector('#editor-topbar');
+const toolbarNotice = document.querySelector('#toolbar-notice');
 const input = document.querySelector('#markdown-input');
 const title = document.querySelector('#editor-title');
-const statusLine = document.querySelector('#status-line');
 const previewRoot = document.querySelector('#preview-root');
 const measureRoot = document.querySelector('#measure-root');
 const pageCount = document.querySelector('#page-count');
 
+// toolbar+tabs 悬浮后脱离文档流，需要给编辑面板补上等高的顶部内边距
+const syncTopbarHeight = () => {
+  editorPanel.style.paddingTop = `${editorTopbar.offsetHeight}px`;
+};
+new ResizeObserver(syncTopbarHeight).observe(editorTopbar);
+syncTopbarHeight();
+
+let autosaveTimeout = null;
+let toolbarNoticeTimeout = null;
+
+function showToolbarNotice(message, { isError = false, duration = 1000 } = {}) {
+  toolbarNotice.textContent = message;
+  toolbarNotice.title = message;
+  toolbarNotice.classList.toggle('error', isError);
+  toolbarNotice.classList.add('show');
+  if (toolbarNoticeTimeout) {
+    clearTimeout(toolbarNoticeTimeout);
+  }
+  toolbarNoticeTimeout = setTimeout(() => {
+    toolbarNoticeTimeout = null;
+    toolbarNotice.classList.remove('show');
+  }, duration);
+}
+
+function triggerAutosave() {
+  if (autosaveTimeout) {
+    clearTimeout(autosaveTimeout);
+  }
+  autosaveTimeout = setTimeout(async () => {
+    await saveAllDocs(true);
+  }, 1000);
+}
+
 document.querySelectorAll('.tab').forEach((button) => {
   button.addEventListener('click', () => {
+    if (autosaveTimeout) {
+      clearTimeout(autosaveTimeout);
+      autosaveTimeout = null;
+      saveAllDocs(true);
+    }
     state.activeTab = button.dataset.tab;
     renderEditor();
   });
@@ -71,29 +115,42 @@ document.querySelectorAll('.tab').forEach((button) => {
 
 input.addEventListener('input', () => {
   state.docs[state.activeTab] = input.value;
-  state.dirty = true;
-  renderPreview();
-  renderStatus();
+  schedulePreviewRender();
+  triggerAutosave();
 });
 
 document.querySelector('#save-button').addEventListener('click', () => {
+  if (autosaveTimeout) {
+    clearTimeout(autosaveTimeout);
+    autosaveTimeout = null;
+  }
   saveAllDocs();
 });
 
 document.querySelector('#reload-button').addEventListener('click', () => {
+  if (autosaveTimeout) {
+    clearTimeout(autosaveTimeout);
+    autosaveTimeout = null;
+  }
   loadDocs();
 });
 
 document.querySelector('#print-button').addEventListener('click', () => {
   renderPreview();
-  requestAnimationFrame(() => window.print());
+  requestAnimationFrame(() => {
+    // 浏览器以 document.title 作为导出 PDF 的默认文件名
+    const { meta } = parseStartMarkdown(state.docs.start || '');
+    const originalTitle = document.title;
+    document.title = `${meta.name}-简历`;
+    window.print();
+    document.title = originalTitle;
+  });
 });
 
 loadDocs();
 
 async function loadDocs() {
   state.loading = true;
-  renderStatus('正在读取 Markdown 文件...');
 
   try {
     const response = await fetch('/api/docs');
@@ -102,20 +159,17 @@ async function loadDocs() {
     }
     const payload = await response.json();
     state.docs = { ...state.docs, ...payload.docs };
-    state.dirty = false;
     state.loading = false;
     renderEditor();
     renderPreview();
-    renderStatus('已读取本地 Markdown 文件');
+    showToolbarNotice('已读取本地 Markdown 文件', { duration: 1500 });
   } catch (error) {
     state.loading = false;
-    renderStatus(`读取失败：${error.message}`, true);
+    showToolbarNotice(`读取失败：${error.message}`, { isError: true, duration: 4000 });
   }
 }
 
-async function saveAllDocs() {
-  renderStatus('正在保存三份 Markdown 文件...');
-
+async function saveAllDocs(isAutosave = false) {
   try {
     await Promise.all(tabs.map(async (tab) => {
       const response = await fetch(`/api/docs/${tab.id}`, {
@@ -127,10 +181,13 @@ async function saveAllDocs() {
         throw new Error(`${tab.filename}: ${await response.text()}`);
       }
     }));
-    state.dirty = false;
-    renderStatus('已保存三份 Markdown 文件');
+    if (isAutosave) {
+      showToolbarNotice('已自动保存');
+    } else {
+      showToolbarNotice('已保存三份 Markdown 文件', { duration: 1500 });
+    }
   } catch (error) {
-    renderStatus(`保存失败：${error.message}`, true);
+    showToolbarNotice(`${isAutosave ? '自动保存' : '保存'}失败：${error.message}`, { isError: true, duration: 4000 });
   }
 }
 
@@ -145,42 +202,80 @@ function renderEditor() {
   input.focus();
 }
 
-function renderStatus(message, isError = false) {
-  if (message) {
-    statusLine.textContent = message;
-  } else {
-    const active = getActiveTab();
-    statusLine.textContent = `${active.filename}${state.dirty ? ' 有未保存修改' : ' 已同步'}`;
+let previewRenderTimeout = null;
+
+function schedulePreviewRender() {
+  if (previewRenderTimeout) {
+    clearTimeout(previewRenderTimeout);
   }
-  statusLine.classList.toggle('error', isError);
+  previewRenderTimeout = setTimeout(() => {
+    previewRenderTimeout = null;
+    renderPreview();
+  }, 200);
 }
+
+const pageSourceHtml = new WeakMap();
 
 function renderPreview() {
-  previewRoot.innerHTML = '';
+  if (previewRenderTimeout) {
+    clearTimeout(previewRenderTimeout);
+    previewRenderTimeout = null;
+  }
 
-  appendStartPages(state.docs.start || '');
-  appendMarkdownPages(state.docs.detail || '', tabs[1]);
-  appendMarkdownPages(state.docs.opensource || '', tabs[2]);
+  const pages = [
+    ...buildStartPages(state.docs.start || ''),
+    ...buildMarkdownPages(state.docs.detail || '', tabs[1]),
+    ...buildMarkdownPages(state.docs.opensource || '', tabs[2]),
+  ];
 
-  initOriginalTables(previewRoot);
-  const total = previewRoot.querySelectorAll('.a4-page').length;
-  pageCount.textContent = `${total} 页`;
+  patchPreviewPages(pages);
+  pageCount.textContent = `${pages.length} 页`;
 }
 
-function appendStartPages(markdown) {
+// 原地按页替换：内容没变的页保持原 DOM 不动，预览区滚动位置因此不会被重置
+function patchPreviewPages(pages) {
+  const existing = Array.from(previewRoot.children);
+  const changed = [];
+
+  pages.forEach((page, index) => {
+    const html = page.outerHTML;
+    const current = existing[index];
+    if (current && pageSourceHtml.get(current) === html) {
+      return;
+    }
+    pageSourceHtml.set(page, html);
+    if (current) {
+      current.replaceWith(page);
+    } else {
+      previewRoot.appendChild(page);
+    }
+    changed.push(page);
+  });
+
+  for (let index = pages.length; index < existing.length; index += 1) {
+    existing[index].remove();
+  }
+
+  changed.forEach((page) => initOriginalTables(page));
+}
+
+function buildStartPages(markdown) {
   const data = parseStartMarkdown(markdown);
-  const pages = [renderCoverPage(data), renderOverviewPage(data, 0), renderOverviewPage(data, 1)];
-  pages.forEach((page) => previewRoot.appendChild(page));
+  return [renderCoverPage(data), ...paginateOverviewPages(data)];
 }
 
-function appendMarkdownPages(markdown, tab) {
-  const pages = paginateHtml(md.render(markdown), () => createMarkdownPage(tab));
+function buildMarkdownPages(markdown, tab) {
+  const pages = paginateHtml(
+    md.render(markdown),
+    () => createMarkdownPage(tab),
+    { ignorePageBreaks: tab.id === 'detail' },
+  );
   pages.forEach((page, index) => {
     page.dataset.section = tab.label;
     page.dataset.file = tab.filename;
     page.querySelector('.page-label').textContent = `${tab.label}${pages.length > 1 ? ` / ${index + 1}` : ''}`;
-    previewRoot.appendChild(page);
   });
+  return pages;
 }
 
 function renderCoverPage(data) {
@@ -204,79 +299,147 @@ function renderCoverPage(data) {
   return page;
 }
 
-function renderOverviewPage(data, pageIndex) {
-  const page = createOriginalPage('page2');
-  const workRows = pageIndex === 0 ? data.workRows.slice(0, 5) : data.workRows.slice(5);
-  const tableId = pageIndex === 0 ? 'page2-table' : 'page3-table';
-  const stringId = pageIndex === 0 ? 'page2-image-string' : 'page3-image-string';
-  const dividerPadding = pageIndex === 0 ? '5mm' : '2mm';
+function paginateOverviewPages(data) {
+  measureRoot.innerHTML = '';
+  const chunks = createOverviewChunks(data);
+  const pages = [];
+  let page = createOverviewPage(data.meta, 0);
+  measureRoot.appendChild(page);
 
+  chunks.forEach((chunk) => {
+    const tableBody = page.querySelector('[data-overview-body]');
+    const rowCount = tableBody.children.length;
+    const isFirstOnPage = rowCount === 0;
+    appendOverviewChunk(tableBody, chunk, isFirstOnPage);
+
+    if (!overviewPageOverflows(page) || isFirstOnPage) {
+      return;
+    }
+
+    while (tableBody.children.length > rowCount) {
+      tableBody.lastElementChild.remove();
+    }
+    pages.push(page);
+    page = createOverviewPage(data.meta, pages.length);
+    measureRoot.appendChild(page);
+    appendOverviewChunk(page.querySelector('[data-overview-body]'), chunk, true);
+  });
+
+  pages.push(page);
+  pages.forEach((item) => item.remove());
+  measureRoot.innerHTML = '';
+  console.info(`[resume-editor] 首页概览已自动排版为 ${pages.length} 页`);
+  return pages;
+}
+
+function createOverviewPage(meta, pageIndex) {
+  const page = createOriginalPage('page2');
+  page.dataset.overviewPage = String(pageIndex + 1);
   page.innerHTML = `
-    ${renderOriginalHeader(data.meta)}
-    <div style="padding: ${dividerPadding};">
-      <img style="width: 100%;" src="https://user-images.githubusercontent.com/37357447/190067385-b9d6cb80-2a5b-4bb2-8572-5355dab841a3.png">
+    ${renderOriginalHeader(meta)}
+    <div class="page2-divider ${pageIndex === 0 ? 'page2-divider-first' : ''}">
+      <img src="https://user-images.githubusercontent.com/37357447/190067385-b9d6cb80-2a5b-4bb2-8572-5355dab841a3.png">
     </div>
     <div>
-      <table class="page2-table" id="${tableId}">
-        ${pageIndex === 0 ? renderFirstOverviewRows(data, stringId, workRows) : renderSecondOverviewRows(data, stringId, workRows)}
+      <table class="page2-table" data-overview-table>
+        <tbody data-overview-body></tbody>
       </table>
     </div>
+    <div class="overview-page-limit" aria-hidden="true"></div>
   `;
   return page;
 }
 
-function renderFirstOverviewRows(data, stringId, workRows) {
+function createOverviewChunks(data) {
+  const chunks = [
+    {
+      section: '教育背景',
+      startsSection: true,
+      html: `
+        <tr>
+          <td class="page2-td-time">${escapeHtml(data.education.time)}</td>
+          <td class="page2-td-blank"></td>
+          <td class="page2-td-brief">${escapeHtml(data.education.school)}</td>
+          <td class="page2-td-job">${escapeHtml(data.education.degree)}</td>
+        </tr>
+      `,
+    },
+    ...createNumberedDetailChunks('教育背景', data.education.details),
+    ...createNumberedDetailChunks('技术亮点', data.highlights, true),
+    ...createWorkChunks(data.workRows),
+    {
+      section: '开源贡献',
+      startsSection: true,
+      html: `
+        <tr>
+          <td class="page2-td-time">${escapeHtml(data.opensource.time)}</td>
+          <td class="page2-td-blank"></td>
+          <td class="page2-td-brief">${escapeHtml(data.opensource.platform)}</td>
+          <td class="page2-td-job"><a href="${escapeAttribute(data.meta.github)}">${escapeHtml(data.meta.github)}</a></td>
+        </tr>
+        <tr>
+          <td class="page2-td-time"></td>
+          <td class="page2-td-blank"></td>
+          <td class="page2-td-detail">${renderInline(data.opensource.summary)}</td>
+          <td></td>
+        </tr>
+      `,
+    },
+    ...createNumberedDetailChunks('开源贡献', data.opensource.items),
+    ...createNumberedDetailChunks('职称证书', data.certificates, true),
+  ];
+
+  return chunks;
+}
+
+function createNumberedDetailChunks(section, items, startsSection = false) {
+  if (!items.length) {
+    return startsSection ? [{ section, startsSection: true, html: '' }] : [];
+  }
+
+  return items.map((item, index) => ({
+    section,
+    startsSection: startsSection && index === 0,
+    html: renderOverviewDetailRow(`${index + 1}. ${renderInline(item)}`),
+  }));
+}
+
+function createWorkChunks(rows) {
+  if (!rows.length) {
+    return [{ section: '工作经历', startsSection: true, html: '' }];
+  }
+
+  return rows.map((row, index) => ({
+    section: '工作经历',
+    startsSection: index === 0,
+    renderHtml: (isFirstOnPage) => `${index > 0 && !isFirstOnPage ? renderNextLine() : ''}${renderWorkRow(row)}`,
+  }));
+}
+
+function renderOverviewDetailRow(content) {
   return `
-    ${renderSectionTitle('教育背景', stringId)}
-    <tr>
-      <td class="page2-td-time">${escapeHtml(data.education.time)}</td>
-      <td class="page2-td-blank"></td>
-      <td class="page2-td-brief">${escapeHtml(data.education.school)}</td>
-      <td class="page2-td-job">${escapeHtml(data.education.degree)}</td>
-    </tr>
-    <tr>
+    <tr class="page2-detail-row">
       <td class="page2-td-time"></td>
       <td class="page2-td-blank"></td>
-      <td class="page2-td-detail">${renderNumberedLines(data.education.details)}</td>
+      <td class="page2-td-detail">${content}</td>
       <td></td>
     </tr>
-    ${renderSectionTitle('技术亮点')}
-    <tr>
-      <td class="page2-td-time"></td>
-      <td class="page2-td-blank"></td>
-      <td class="page2-td-detail">${renderNumberedLines(data.highlights)}</td>
-      <td></td>
-    </tr>
-    ${renderSectionTitle('工作经历')}
-    ${renderWorkRows(workRows)}
   `;
 }
 
-function renderSecondOverviewRows(data, stringId, workRows) {
-  return `
-    ${renderSectionTitle('工作经历', stringId)}
-    ${renderWorkRows(workRows)}
-    ${renderSectionTitle('开源贡献')}
-    <tr>
-      <td class="page2-td-time">${escapeHtml(data.opensource.time)}</td>
-      <td class="page2-td-blank"></td>
-      <td class="page2-td-brief">${escapeHtml(data.opensource.platform)}</td>
-      <td class="page2-td-job"><a href="${escapeAttribute(data.meta.github)}">${escapeHtml(data.meta.github)}</a></td>
-    </tr>
-    <tr>
-      <td class="page2-td-time"></td>
-      <td class="page2-td-blank"></td>
-      <td class="page2-td-brief">${renderInline(data.opensource.summary)}${data.opensource.items.length ? `<br />${renderNumberedLines(data.opensource.items)}` : ''}</td>
-      <td class="page2-td-job"></td>
-    </tr>
-    ${renderSectionTitle('职称证书')}
-    <tr>
-      <td class="page2-td-time"></td>
-      <td class="page2-td-blank"></td>
-      <td class="page2-td-detail">${renderNumberedLines(data.certificates)}<br /><br /></td>
-      <td></td>
-    </tr>
-  `;
+function appendOverviewChunk(tableBody, chunk, isFirstOnPage) {
+  const continuation = isFirstOnPage && !chunk.startsSection;
+  const title = chunk.startsSection || continuation
+    ? renderSectionTitle(`${chunk.section}${continuation ? '（续）' : ''}`, isFirstOnPage)
+    : '';
+  const html = chunk.renderHtml ? chunk.renderHtml(isFirstOnPage) : chunk.html;
+  tableBody.insertAdjacentHTML('beforeend', `${title}${html}`);
+}
+
+function overviewPageOverflows(page) {
+  const table = page.querySelector('[data-overview-table]');
+  const limit = page.querySelector('.overview-page-limit');
+  return table.getBoundingClientRect().bottom > limit.getBoundingClientRect().top;
 }
 
 function renderOriginalHeader(meta) {
@@ -296,18 +459,18 @@ function renderOriginalHeader(meta) {
         </ul>
       </span>
       <span>
-        <img class="page2-div1-image" src="${escapeAttribute(meta.avatar)}">
+        <img class="page2-div1-image" src="${escapeAttribute(resolveAvatarSrc(meta.avatar))}">
       </span>
     </div>
   `;
 }
 
-function renderSectionTitle(title, stringId = '') {
+function renderSectionTitle(title, showString = false) {
   return `
     <tr>
       <td class="page2-td-title">${escapeHtml(title)}</td>
       <td class="page2-td-blank">
-        ${stringId ? `<img class="page-image-string" id="${stringId}" src="https://user-images.githubusercontent.com/37357447/190121583-8f302a44-30f1-40b7-a770-5bae7b6aff7d.png">` : ''}
+        ${showString ? '<img class="page-image-string" data-overview-string src="https://user-images.githubusercontent.com/37357447/190121583-8f302a44-30f1-40b7-a770-5bae7b6aff7d.png">' : ''}
         <img style="width: 4mm;" src="https://user-images.githubusercontent.com/37357447/190117858-e2bff0ce-50df-479b-938d-ff98470dfe4f.png">
       </td>
       <td class="page2-td-title-blank">
@@ -318,9 +481,8 @@ function renderSectionTitle(title, stringId = '') {
   `;
 }
 
-function renderWorkRows(rows) {
-  return rows.map((row, index) => `
-    ${index > 0 ? renderNextLine() : ''}
+function renderWorkRow(row) {
+  return `
     <tr>
       <td class="page2-td-time">${escapeHtml(row.time)}</td>
       <td class="page2-td-blank"></td>
@@ -333,7 +495,7 @@ function renderWorkRows(rows) {
       <td class="page2-td-detail">${renderInline(row.summary)}</td>
       <td class="page2-td-job"></td>
     </tr>
-  `).join('');
+  `;
 }
 
 function renderNextLine() {
@@ -358,12 +520,12 @@ function parseStartMarkdown(markdown) {
   const meta = {
     name: frontMatter.name || title || '张三',
     school: frontMatter.school || info['毕业院校'] || '某某名牌大学',
-    job: frontMatter.job || info['应聘岗位'] || '后端开发',
-    experience: frontMatter.experience || info['工作经验'] || '6年',
+    job: frontMatter.job || info['应聘岗位'] || '高级全栈开发工程师',
+    experience: frontMatter.experience || info['工作经验'] || '8年',
     email: frontMatter.email || info['联系邮箱'] || 'zhangsan_demo@example.com',
     phone: frontMatter.phone || info['电话号码'] || '138-0000-0000',
-    avatar: frontMatter.avatar || info['头像'] || 'https://example.com/avatar.png',
-    github: frontMatter.github || info.GitHub || 'https://github.com/hsiong',
+    avatar: frontMatter.avatar || info['头像'] || DEFAULT_AVATAR,
+    github: frontMatter.github || info.GitHub || 'https://github.com/demo-user',
   };
 
   return {
@@ -517,8 +679,9 @@ function initOriginalTables(root) {
     element.setAttribute('colspan', '2');
   });
 
-  computeOriginalString(root.querySelector('#page2-image-string'), root.querySelector('#page2-table'));
-  computeOriginalString(root.querySelector('#page3-image-string'), root.querySelector('#page3-table'));
+  root.querySelectorAll('[data-overview-string]').forEach((imageString) => {
+    computeOriginalString(imageString, imageString.closest('table'));
+  });
 }
 
 function computeOriginalString(imageString, table) {
@@ -534,7 +697,7 @@ function computeOriginalString(imageString, table) {
   imageString.setAttribute('style', `top: 50%; height:${height}px`);
 }
 
-function paginateHtml(html, createTargetPage) {
+function paginateHtml(html, createTargetPage, { ignorePageBreaks = false } = {}) {
   measureRoot.innerHTML = '';
   const sourceBody = document.createElement('div');
   sourceBody.innerHTML = html;
@@ -550,7 +713,7 @@ function paginateHtml(html, createTargetPage) {
 
   nodes.forEach((node) => {
     if (node.nodeType === Node.ELEMENT_NODE && node.classList.contains('page-break')) {
-      if (body.children.length > 0) {
+      if (!ignorePageBreaks && body.children.length > 0) {
         pages.push(page);
         page = createTargetPage();
         measureRoot.appendChild(page);
@@ -590,7 +753,25 @@ function appendList(listNode, page, body, pages, maxHeight, createTargetPage) {
 
   Array.from(listNode.children).forEach((item) => {
     targetList.appendChild(item.cloneNode(true));
-    if (body.scrollHeight <= maxHeight || targetList.children.length === 1) {
+    if (body.scrollHeight <= maxHeight) {
+      return;
+    }
+
+    if (targetList.children.length === 1 && body.children.length > 1) {
+      body.removeChild(targetList);
+      pages.push(page);
+      page = createTargetPage();
+      measureRoot.appendChild(page);
+      body = page.querySelector('[data-page-body]');
+      lockBodyHeight(body);
+      targetList = document.createElement(listNode.tagName.toLowerCase());
+      copyAttributes(listNode, targetList);
+      body.appendChild(targetList);
+      targetList.appendChild(item.cloneNode(true));
+      return;
+    }
+
+    if (targetList.children.length === 1) {
       return;
     }
 
@@ -643,6 +824,23 @@ function copyAttributes(from, to) {
   Array.from(from.attributes).forEach((attribute) => {
     to.setAttribute(attribute.name, attribute.value);
   });
+}
+
+// 头像支持两种来源：http(s)/data 网络图片直接使用；本地绝对路径(如
+// /Users/xxx/resume.jpg、~/a.png、file:// 或 Windows 盘符)交给后端读取返回
+function resolveAvatarSrc(value) {
+  const raw = String(value || '').trim();
+  if (!raw) {
+    return raw;
+  }
+  if (/^(https?:)?\/\//i.test(raw) || /^data:/i.test(raw)) {
+    return raw;
+  }
+  let localPath = raw;
+  if (/^file:\/\//i.test(localPath)) {
+    localPath = decodeURIComponent(localPath.replace(/^file:\/\//i, ''));
+  }
+  return `/api/local-image?path=${encodeURIComponent(localPath)}`;
 }
 
 function escapeHtml(value) {
