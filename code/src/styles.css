@@ -69,6 +69,18 @@ button.ghost:hover {
   background: #ffffff;
 }
 
+/* 悬浮在视口左上角，宽度与编辑面板列宽保持一致 */
+.editor-topbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 30;
+  width: max(380px, 42vw);
+  background: #ffffff;
+  border-right: 1px solid var(--border);
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+}
+
 .toolbar {
   display: flex;
   min-height: 78px;
@@ -93,7 +105,32 @@ button.ghost:hover {
 .actions {
   display: flex;
   flex: none;
+  align-items: center;
   gap: 8px;
+}
+
+.toolbar-notice {
+  max-width: 220px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--soft);
+  color: var(--accent-dark);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
+}
+
+.toolbar-notice.show {
+  opacity: 1;
+}
+
+.toolbar-notice.error {
+  background: #fdecea;
+  color: #b42318;
 }
 
 .tabs {
@@ -126,19 +163,6 @@ button.ghost:hover {
   font: 14px/1.65 ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
   color: #20242a;
   background: #fbfcfd;
-}
-
-.status-line {
-  flex: none;
-  min-height: 34px;
-  padding: 8px 18px;
-  border-top: 1px solid var(--border);
-  color: var(--muted);
-  font-size: 13px;
-}
-
-.status-line.error {
-  color: #b42318;
 }
 
 .preview-panel {
@@ -357,6 +381,29 @@ button.ghost:hover {
 #measure-root .a4-page {
   margin: 0;
   box-shadow: none;
+}
+
+.page2-divider {
+  padding: 2mm;
+}
+
+.page2-divider-first {
+  padding: 5mm;
+}
+
+.page2-divider img {
+  display: block;
+  width: 100%;
+  height: 2mm;
+}
+
+.overview-page-limit {
+  position: absolute;
+  right: 0;
+  bottom: 8mm;
+  left: 0;
+  height: 0;
+  pointer-events: none;
 }
 
 @media print {
