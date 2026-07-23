@@ -1,5 +1,6 @@
 import { createReadStream, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
+import { homedir } from 'node:os';
 import { extname, join, normalize, resolve } from 'node:path';
 
 const port = Number(process.argv[2] || process.env.PORT || 5173);
@@ -24,8 +25,28 @@ const contentTypes = {
   '.webp': 'image/webp',
 };
 
+// 本地图片(头像等)支持的格式，仅允许读取图片文件
+const imageContentTypes = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.svg': 'image/svg+xml',
+  '.webp': 'image/webp',
+  '.bmp': 'image/bmp',
+  '.avif': 'image/avif',
+  '.ico': 'image/x-icon',
+  '.tif': 'image/tiff',
+  '.tiff': 'image/tiff',
+};
+
 createServer((request, response) => {
   const url = new URL(request.url || '/', `http://${request.headers.host || 'localhost'}`);
+
+  if (url.pathname === '/api/local-image' && request.method === 'GET') {
+    sendLocalImage(response, url.searchParams.get('path'));
+    return;
+  }
 
   if (url.pathname === '/api/docs' && request.method === 'GET') {
     sendJson(response, {
@@ -90,6 +111,32 @@ createServer((request, response) => {
 }).listen(port, () => {
   console.log(`resume editor serving ${root} at http://localhost:${port}/`);
 });
+
+function sendLocalImage(response, rawPath) {
+  if (!rawPath) {
+    response.writeHead(400);
+    response.end('path is required');
+    return;
+  }
+
+  // 支持 ~ 家目录展开，交由服务端从本地磁盘读取绝对路径图片
+  const filePath = resolve(rawPath.replace(/^~(?=[/\\]|$)/, homedir()));
+  const type = imageContentTypes[extname(filePath).toLowerCase()];
+  if (!type) {
+    response.writeHead(415);
+    response.end('Unsupported image type');
+    return;
+  }
+
+  if (!existsSync(filePath) || statSync(filePath).isDirectory()) {
+    response.writeHead(404);
+    response.end('Image not found');
+    return;
+  }
+
+  response.writeHead(200, { 'Content-Type': type });
+  createReadStream(filePath).pipe(response);
+}
 
 function readDoc(filename) {
   const filePath = resolve(join(workspace, filename));
