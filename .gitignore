@@ -36,4 +36,8 @@ pnpm-debug.log*
 .env.development.local
 .env.test.local
 .env.production.local
+# 私人真实简历数据源与其专用启动脚本，禁止入库
 *_bac.md
+*_zyz.md
+code/start_bac.sh
+code/start_zyz.sh
